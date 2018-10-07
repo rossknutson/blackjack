@@ -1,6 +1,5 @@
 from random import shuffle
 import tkinter
-import time
 
 name10s = ["J", "Q", "K"]
 symbols = ['♠', '♥', '♣', '♦']
@@ -85,16 +84,38 @@ class BlackjackGUI:
         self.master.title("Blackjack by Ross")
         self.deck = Deck()
 
-        self.dealerhandlab = tkinter.Label(self.master, text=self.get_sum("p"))
+        self.player_score = tkinter.IntVar()
+        self.player_score.set(None)
+        self.dealer_score = tkinter.IntVar()
+        self.dealer_score.set("Dealer")
+
+        self.instructions_text = tkinter.StringVar()
+        self.instructions_text.set("Hit or Stay\n\n")
+
+        self.title_frame = tkinter.Frame(master)
+        self.title = tkinter.Canvas(self.title_frame, width=600, height=100)
+        self.title.create_text(300, 50, text="Blackjack!", font=("Helvetica", 36))
+        self.instructions = tkinter.Label(self.title_frame, textvariable=self.instructions_text, font="Helvetica 12")
+        self.title.pack(side=tkinter.TOP)
+        self.instructions.pack(side=tkinter.TOP)
+        self.title_frame.pack(side=tkinter.TOP)
+
+        self.dealer_space = tkinter.Frame(master)
+        self.dealer_space.pack(side=tkinter.TOP)
+
+        self.player_space = tkinter.Frame(master)
+        self.player_space.pack(side=tkinter.TOP)
+
+        self.dealerhandlab = tkinter.Label(self.dealer_space, textvariable=self.dealer_score, font="Helvetica 12 bold")
         self.dealerhandlab.pack(side=tkinter.TOP)
 
-        self.dealercards = tkinter.Frame(master, width=600, height=200,)
+        self.dealercards = tkinter.Frame(self.dealer_space, width=600, height=200)
         self.dealercards.pack(side=tkinter.TOP)
 
-        self.yourhandlab = tkinter.Label(self.master, text=self.get_sum("d"))
+        self.yourhandlab = tkinter.Label(self.player_space, textvariable=self.player_score, font="Helvetica 12 bold")
         self.yourhandlab.pack(side=tkinter.TOP)
 
-        self.playercards = tkinter.Frame(master, width=600, height=200,)
+        self.playercards = tkinter.Frame(self.player_space, width=600, height=200)
         self.playercards.pack(side=tkinter.TOP)
 
         self.buttons = tkinter.Frame(master, width=400, height=100, )
@@ -111,10 +132,6 @@ class BlackjackGUI:
 
         self.quit_button = tkinter.Button(self.buttons, text="Quit", command=master.quit)
         self.quit_button.pack(side=tkinter.LEFT)
-
-        self.busted = tkinter.Label(self.master, text="BUST", fg="red", font=('Helvetica', 16))
-
-        self.blackjack = None
 
         self.blank_card = None
 
@@ -148,16 +165,18 @@ class BlackjackGUI:
 
         self.create_card(self.deck.player[0])
         self.create_card(self.deck.player[1])
-        if self.deck.get_player_sum() == 21:
-            self.blackjack = tkinter.Canvas(self.dealercards, height=100, width=300, bg="green")
-            self.blackjack.create_text(150, 50, text="BLACKJACK!", font="Times 20")
-            self.blackjack.pack(side=tkinter.BOTTOM)
-            return
         self.create_card(self.deck.dealer[0])
         self.blank_card = tkinter.Canvas(self.dealercards, height=100, width=70)
         self.blank_card.create_rectangle(5, 5, 70, 100, fill="gray")
         self.blank_card.pack(side=tkinter.RIGHT)
-
+        self.dealer_score.set("Dealer")
+        self.instructions_text.set("Hit or Stay\n\n")
+        if self.deck.get_player_sum() == 21:
+            self.player_score.set("Player: " + str(self.deck.get_player_sum()) + " BLACKJACK!")
+            self.instructions_text.set("You Win! - Deal or Quit\n\n")
+            self.active_game = 0
+            return
+        self.player_score.set("Player: " + str(self.deck.get_player_sum()))
 
     def player_hit(self):
         if self.active_game == 0:
@@ -166,10 +185,19 @@ class BlackjackGUI:
             return
         if self.deck.get_player_sum() == 21:
             return
+        if self.deck.get_dealer_sum() == 21:
+            self.blank_card.destroy()
+            self.create_card(self.deck.dealer[1])
+            self.instructions_text.set("You Lose - Deal or Quit\n\n")
+            self.dealer_score.set("Dealer: " + str(self.deck.get_dealer_sum()) + " Dealer Blackjack")
+            self.active_game = 0
+            return
         self.deck.deal_player()
         self.create_card(self.deck.player[-1])
+        self.player_score.set("Player: " + str(self.deck.get_player_sum()))
         if self.deck.get_player_sum() > 21:
-            self.busted.pack(side=tkinter.TOP)
+            self.player_score.set("Player: " + str(self.deck.get_player_sum()) + " BUSTED!")
+            self.instructions_text.set("You Lose - Deal or Quit\n\n")
             self.active_game = 0
             return
 
@@ -178,37 +206,42 @@ class BlackjackGUI:
             return
         self.blank_card.destroy()
         self.create_card(self.deck.dealer[1])
+        if self.deck.get_dealer_sum() == 21:
+            self.instructions_text.set("You Lose - Deal or Quit\n\n")
+            self.dealer_score.set("Dealer: " + str(self.deck.get_dealer_sum()) + " Dealer Blackjack")
+            self.active_game = 0
+            return
         while self.deck.get_dealer_sum() < 17:
             self.deck.deal_dealer()
             self.create_card(self.deck.dealer[-1])
         self.active_game = 0
+        self.dealer_score.set("Dealer: " + str(self.deck.get_dealer_sum()))
+        if self.deck.get_dealer_sum() > 21:
+            self.instructions_text.set("You Win! - Deal or Quit\n\n")
+            self.dealer_score.set("Dealer: " + str(self.deck.get_dealer_sum()) + " Dealer Busts!")
+        elif self.deck.get_dealer_sum() > self.deck.get_player_sum():
+            self.instructions_text.set("You Lose - Deal or Quit\n\n")
+            self.dealer_score.set("Dealer: " + str(self.deck.get_dealer_sum()))
+        elif self.deck.get_dealer_sum() == self.deck.get_player_sum():
+            self.instructions_text.set("Push - Deal or Quit\n\n")
+            self.dealer_score.set("Dealer: " + str(self.deck.get_dealer_sum()))
+        else:
+            self.instructions_text.set("You Win! - Deal or Quit\n\n")
+            self.dealer_score.set("Dealer: " + str(self.deck.get_dealer_sum()))
         return
 
-
-
-        #Testing DELETE
-        #print("Player: ", str(deck.get_player_sum()))
-        #print("Dealer: ", str(deck.get_player_sum()))
-        #print(deck.get_player_sum() <= deck.get_dealer_sum())
-
     def restart(self):
-        self.busted.pack_forget()
+        if self.active_game == 1:
+            return
         for widget in self.dealercards.winfo_children() + self.playercards.winfo_children():
             widget.destroy()
         self.start_deal()
 
-    def get_sum(self, player):
-        if player == "d":
-            return "Dealer: " + str(self.deck.get_dealer_sum())
-        else:
-            return "Player: " + str(self.deck.get_player_sum())
-
 
 def main():
     root = tkinter.Tk()
-    root.geometry("800x400")
+    root.geometry("800x500")
     BlackjackGUI(root)
     root.mainloop()
 
-#Run Program
 main()
