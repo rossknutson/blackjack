@@ -1,0 +1,214 @@
+from random import shuffle
+import tkinter
+import time
+
+name10s = ["J", "Q", "K"]
+symbols = ['♠', '♥', '♣', '♦']
+
+class Card:
+    def __init__(self, value, suit):
+        self.value = value
+        self.suit = suit
+        if self.value == 1:
+            self.val_name = "A"
+            self.val_mag = 11
+        elif self.value >= 11:
+            self.val_name = name10s[self.value - 11]
+            self.val_mag = 10
+        else:
+            self.val_name = self.value
+            self.val_mag = self.value
+
+        self.symbol = symbols[["spades", "hearts", "clubs", "diamonds"].index(suit)]
+        self.owner = ""
+
+    def __str__(self):
+        return str(self.val_name) + " of " + str(self.suit)
+
+
+class Deck(Card):
+    def __init__(self):
+        self.contents = [Card(value, suit) for value in range(1, 14) for suit in ["spades", "hearts", "clubs", "diamonds"]]
+        shuffle(self.contents)
+        self.dealer = []
+        self.player = []
+
+    def draw_card(self):
+        return self.contents.pop(0)
+
+    def size(self):
+        return len(self.contents)
+
+    def deal(self):
+        for i in range(2):
+            self.player.append(self.contents.pop(i))
+            self.player[-1].owner = "player"
+            self.dealer.append(self.contents.pop(i))
+            self.dealer[-1].owner = "dealer"
+
+    def get_player_sum(self):
+        player_sum = 0
+        ace_count = 0
+        for i in range(len(self.player)):
+            player_sum += self.player[i].val_mag
+            if self.player[i].val_name == "A":
+                ace_count += 1
+        while ace_count > 0 and player_sum > 21:
+            player_sum -= 10
+            ace_count -= 1
+        return player_sum
+
+    def get_dealer_sum(self):
+        dealer_sum = 0
+        ace_count = 0
+        for i in range(len(self.dealer)):
+            dealer_sum += self.dealer[i].val_mag
+            if self.dealer[i].val_name == "A":
+                ace_count += 1
+        while ace_count > 0 and dealer_sum > 21:
+            dealer_sum -= 10
+            ace_count -= 1
+        return dealer_sum
+
+    def deal_player(self):
+        self.player.append(self.contents.pop(0))
+        self.player[-1].owner = "player"
+
+    def deal_dealer(self):
+        self.dealer.append(self.contents.pop(0))
+        self.dealer[-1].owner = "dealer"
+
+
+class BlackjackGUI:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("Blackjack by Ross")
+        self.deck = Deck()
+
+        self.dealerhandlab = tkinter.Label(self.master, text=self.get_sum("p"))
+        self.dealerhandlab.pack(side=tkinter.TOP)
+
+        self.dealercards = tkinter.Frame(master, width=600, height=200,)
+        self.dealercards.pack(side=tkinter.TOP)
+
+        self.yourhandlab = tkinter.Label(self.master, text=self.get_sum("d"))
+        self.yourhandlab.pack(side=tkinter.TOP)
+
+        self.playercards = tkinter.Frame(master, width=600, height=200,)
+        self.playercards.pack(side=tkinter.TOP)
+
+        self.buttons = tkinter.Frame(master, width=400, height=100, )
+        self.buttons.pack(side=tkinter.BOTTOM)
+
+        self.hit_button = tkinter.Button(self.buttons, text="Deal", command=lambda: self.restart())
+        self.hit_button.pack(side=tkinter.LEFT)
+
+        self.hit_button = tkinter.Button(self.buttons, text="Hit", command=lambda: self.player_hit())
+        self.hit_button.pack(side=tkinter.LEFT)
+
+        self.stay_button = tkinter.Button(self.buttons, text="Stay", command=lambda: self.dealer_play())
+        self.stay_button.pack(side=tkinter.LEFT)
+
+        self.quit_button = tkinter.Button(self.buttons, text="Quit", command=master.quit)
+        self.quit_button.pack(side=tkinter.LEFT)
+
+        self.busted = tkinter.Label(self.master, text="BUST", fg="red", font=('Helvetica', 16))
+
+        self.blackjack = None
+
+        self.blank_card = None
+
+        self.active_game = 1
+
+        self.start_deal()
+
+    def create_card(self, card):
+        if card.suit in ['hearts', 'diamonds']:
+            card_color = "RED"
+        else:
+            card_color = "BLACK"
+        if card.owner == "dealer":
+            temp_card = tkinter.Canvas(self.dealercards, height=100, width=70)
+            temp_str = str(card.val_name) + "\n" + str(card.symbol)
+            temp_card.create_text(50, 35, text=temp_str, fill=card_color)
+            temp_card.create_rectangle(5, 5, 70, 100)
+            temp_card.pack(side=tkinter.LEFT)
+        elif card.owner == "player":
+            temp_card = tkinter.Canvas(self.playercards, height=100, width=70)
+            temp_str = str(card.val_name) + "\n" + str(card.symbol)
+            temp_card.create_text(50, 35, text=temp_str, fill=card_color)
+            temp_card.create_rectangle(5, 5, 70, 100)
+            temp_card.pack(side=tkinter.LEFT)
+
+    def start_deal(self):
+        self.deck = Deck()
+        self.deck.deal()
+
+        self.active_game = 1
+
+        self.create_card(self.deck.player[0])
+        self.create_card(self.deck.player[1])
+        if self.deck.get_player_sum() == 21:
+            self.blackjack = tkinter.Canvas(self.dealercards, height=100, width=300, bg="green")
+            self.blackjack.create_text(150, 50, text="BLACKJACK!", font="Times 20")
+            self.blackjack.pack(side=tkinter.BOTTOM)
+            return
+        self.create_card(self.deck.dealer[0])
+        self.blank_card = tkinter.Canvas(self.dealercards, height=100, width=70)
+        self.blank_card.create_rectangle(5, 5, 70, 100, fill="gray")
+        self.blank_card.pack(side=tkinter.RIGHT)
+
+
+    def player_hit(self):
+        if self.active_game == 0:
+            return
+        if self.deck.get_player_sum() > 21:
+            return
+        if self.deck.get_player_sum() == 21:
+            return
+        self.deck.deal_player()
+        self.create_card(self.deck.player[-1])
+        if self.deck.get_player_sum() > 21:
+            self.busted.pack(side=tkinter.TOP)
+            self.active_game = 0
+            return
+
+    def dealer_play(self):
+        if self.active_game == 0:
+            return
+        self.blank_card.destroy()
+        self.create_card(self.deck.dealer[1])
+        while self.deck.get_dealer_sum() < 17:
+            self.deck.deal_dealer()
+            self.create_card(self.deck.dealer[-1])
+        self.active_game = 0
+        return
+
+
+
+        #Testing DELETE
+        #print("Player: ", str(deck.get_player_sum()))
+        #print("Dealer: ", str(deck.get_player_sum()))
+        #print(deck.get_player_sum() <= deck.get_dealer_sum())
+
+    def restart(self):
+        self.busted.pack_forget()
+        for widget in self.dealercards.winfo_children() + self.playercards.winfo_children():
+            widget.destroy()
+        self.start_deal()
+
+    def get_sum(self, player):
+        if player == "d":
+            return "Dealer: " + str(self.deck.get_dealer_sum())
+        else:
+            return "Player: " + str(self.deck.get_player_sum())
+
+
+def main():
+    root = tkinter.Tk()
+    root.geometry("800x400")
+    BlackjackGUI(root)
+    root.mainloop()
+
+#Run Program
+main()
